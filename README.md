@@ -46,6 +46,19 @@ There's also a [working example](example.html) of the plugin you can check out i
 You may pass in an options object to the plugin upon initialization. This
 object may contain any of the following properties:
 
+#### playNextAdInMs
+Type: `Integer` (time in miliseconds)
+Default: 0
+
+Stores cookie with experation time playNextAdInMs, if cookie exists player will ignore the preroll.
+playNextAdInMs must less than 7 days
+
+#### auto
+Type: `Boolean`
+Default: false
+
+Auto play when preroll is ready, videojs' autoPlay (in player config) must be false
+
 #### src
 Type: `String` | `Object` | `Array`
 

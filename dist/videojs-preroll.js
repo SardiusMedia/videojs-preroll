@@ -1,12 +1,12 @@
-/*! videojs-preroll - v1.1.0 - 2016-10-22
-* Copyright (c) 2016 Sano Webdevelopment;
+/*! videojs-preroll - v1.1.0 - 2017-03-06
+* Copyright (c) 2017 Sano Webdevelopment;
 * Copyright (c) 2014 The Onion
 * Licensed MIT */
 (function(window, videojs) {
   'use strict';
 
   var defaults = {
-    src : '', //Advertisement source, can also be an object like {src:"file.mp4",type:"video/mp4"}
+    src : '', //Advertisement source, can also be an object like {src:'file.mp4',type:'video/mp4'}
     href : '', //Advertised url
     target: '_blank', //Target to open the ad url in
     allowSkip: true, //Allow skipping of the ad after a certain period
@@ -15,6 +15,8 @@
     adSign: false, //Advertisement sign
     showRemaining: false, //Show remaining ad time > works if allowSkip is false
     adsOptions: {}, //Options passed to the ads plugin
+    playNextAdInMs: -1,//maxNumber of ads to play daily
+    auto:false,
     lang: {
       'skip':'Skip',
       'skip in': 'Skip in ',
@@ -22,7 +24,50 @@
       'video start in': 'Video will start in: '
     } //Language entries for translation
   }, prerollPlugin;
+  var setCookie = function(name, value, expMs) {
+      if(typeof expMs === 'undefined' || typeof expMs === 'string'){
+        return;
+      }
 
+      var expires;
+      if (expMs) {
+          var date = new Date();
+          date.setTime(date.getTime() + expMs);
+          expires = '; expires=' + date.toGMTString();
+      }
+      else {
+          expires = '';
+      }
+      document.cookie = name + '=' + value + expires + '; path=/';
+  };
+
+  function getCookie(c_name) {
+      if (document.cookie.length > 0) {
+         var c_start = document.cookie.indexOf(c_name + '=');
+          if (c_start !== -1) {
+              c_start = c_start + c_name.length + 1;
+              var c_end = document.cookie.indexOf(';', c_start);
+              if (c_end === -1) {
+                  c_end = document.cookie.length;
+              }
+              return document.cookie.substring(c_start, c_end);
+          }
+      }
+      return undefined;
+  }
+
+  function shouldPlayNextPreroll (settings){
+    if(settings.playNextAdInMs >= 0 && settings.playNextAdInMs <= 2606400000){
+      var hasCookie = getCookie('Sardius_DisablePreroll');
+      if(hasCookie){
+        return false;  
+      }
+      else{
+        setCookie('Sardius_DisablePreroll',true,settings.playNextAdInMs)
+      }
+    }
+    return true
+  }
   //
   // Initialize the plugin.
   //
@@ -30,16 +75,40 @@
   //            (optional) {object} configuration for the plugin
   //
   prerollPlugin = function(options) {
+   
     var settings = videojs.mergeOptions(defaults, options), player = this;
+    
+    if(!shouldPlayNextPreroll(settings)){
+       player.preroll = {adDone:true}
+
+       if(settings.auto){
+          player.on('loadedmetadata', function() {
+            player.play()
+          })
+          player.on('loadstart', function() {
+            player.play()
+          })
+       }
+      return
+    }
+    if(Array.isArray(settings.src)){
+     settings.src = settings.src[Math.floor(Math.random() * settings.src.length)];
+    }
+    
     player.ads(settings.adsOptions);
     player.preroll = {adDone:false};
     player.on('contentupdate', function() {
+
       if(!player.preroll.shouldPlayPreroll()){
         player.trigger('adscanceled');
       }else{
         player.trigger('adsready');
       }
+      if(settings.auto){
+        player.play()
+      }
     });
+
     player.on('readyforpreroll', function() {
       // No video? No ad.
       if(!player.preroll.shouldPlayPreroll()){
@@ -47,11 +116,16 @@
         return;
       }
 
+
       // Initialize ad mode
       player.ads.startLinearAdMode();
 
       // Change player src to ad src
       player.src(settings.src);
+
+      //start playback if auto
+     
+
       player.one('durationchange', function() {
         player.play();
       });
@@ -60,6 +134,7 @@
       player.one('progress', function() {
         player.play();
       });
+
       player.one('adloadstart',function(){
         player.play();
       });
@@ -116,15 +191,20 @@
       player.one('adended', player.preroll.exitPreroll);
       player.one('error', player.preroll.prerollError);
     });
+    
     player.preroll.shouldPlayPreroll = function(){
       if (settings.src === ''){
         return false;
       }
+
       if (player.preroll.adDone === true){
         return false;
       }
+      //
+   
       return true;
     };
+
     player.preroll.exitPreroll = function() {
       if(typeof player.preroll.skipButton !== 'undefined'){
         player.preroll.skipButton.parentNode.removeChild(player.preroll.skipButton);
@@ -153,7 +233,7 @@
       player.loadingSpinner.hide();
       var timeLeft = Math.ceil(settings.skipTime - player.currentTime());
       if(timeLeft > 0) {
-        player.preroll.skipButton.innerHTML = settings.lang['skip in'] + timeLeft + '...';
+          player.preroll.skipButton.innerHTML = settings.lang['skip in'] + timeLeft + '...';
       } else {
         if((' ' + player.preroll.skipButton.className + ' ').indexOf(' enabled ') === -1){
           player.preroll.skipButton.className += ' enabled';
