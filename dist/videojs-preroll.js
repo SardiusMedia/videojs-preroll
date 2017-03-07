@@ -1,4 +1,4 @@
-/*! videojs-preroll - v1.1.0 - 2017-03-06
+/*! videojs-preroll - v1.1.0 - 2017-03-07
 * Copyright (c) 2017 Sano Webdevelopment;
 * Copyright (c) 2014 The Onion
 * Licensed MIT */
@@ -57,13 +57,10 @@
   }
 
   function shouldPlayNextPreroll (settings){
-    if(settings.playNextAdInMs >= 0 && settings.playNextAdInMs <= 2606400000){
+    if(settings.playNextAdInMs > 0 && settings.playNextAdInMs <= 2606400000){
       var hasCookie = getCookie('Sardius_DisablePreroll');
       if(hasCookie){
         return false;  
-      }
-      else{
-        setCookie('Sardius_DisablePreroll',true,settings.playNextAdInMs)
       }
     }
     return true
@@ -91,12 +88,13 @@
        }
       return
     }
+  
     if(Array.isArray(settings.src)){
      settings.src = settings.src[Math.floor(Math.random() * settings.src.length)];
     }
     
     player.ads(settings.adsOptions);
-    player.preroll = {adDone:false};
+    player.preroll = {adDone:false,settings:settings};
     player.on('contentupdate', function() {
 
       if(!player.preroll.shouldPlayPreroll()){
@@ -200,7 +198,6 @@
       if (player.preroll.adDone === true){
         return false;
       }
-      //
    
       return true;
     };
@@ -224,6 +221,10 @@
       if (settings.repeatAd !== true){
         player.preroll.adDone=true;
       }
+      if(settings.playNextAdInMs > 0 && settings.playNextAdInMs <= 2606400000){
+        setCookie('Sardius_DisablePreroll',true,settings.playNextAdInMs)
+      }
+      
       player.loadingSpinner.show(); //Show Spinner to provide feedback of video loading status to user
       player.posterImage.hide(); //Hide Poster Image to provide feedback of video loading status to user
       player.bigPlayButton.hide(); //Hide Play Button to provide feedback of video loading status to user
